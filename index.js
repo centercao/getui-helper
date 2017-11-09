@@ -17,15 +17,6 @@ var GETUI = function (options) {
 	this.authToken = "";
 };
 GETUI.prototype = {
-	uuid:function() {
-		var d = new Date().getTime();
-		var uuid = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-			var r = (d + Math.random()*16)%16 | 0;
-			d = Math.floor(d/16);
-			return (c=='x' ? r : (r&0x7|0x8)).toString(16);
-		});
-		return uuid;
-	},
 	getAuthToken:function () {
 		var timeStamp = new Date().getTime();
 		var sign = crypto.createHash('sha256').update(this.options.appKey + timeStamp + this.options.masterSecret).digest('hex');
@@ -48,19 +39,20 @@ GETUI.prototype = {
 		return new Promise(function (resolve, reject) {
 			request(option,
 				function(error, response, data) {
-					if (!error && response.statusCode == 200 && data.result == "ok") {
+					if (!error &&  data.result == "ok") {
 						that.authToken = data.auth_token;
 						resolve(data.result);
 						return;
 					}else{
 						that.authToken = "";
-						reject(error + (data && data.result));
+						reject(error || data.result);
 					}
 				});
 		})
 	},
 	sendMessage:function (title,info,cId) {
 		if(!this.authToken){
+			this.getAuthToken();
 			return "error"
 		}
 		var postData ={
@@ -72,15 +64,13 @@ GETUI.prototype = {
 			},
 			"transmission":{
 				"transmission_type":false,
-				"transmission_content":"this is the transmission_content",
-				"duration_begin":"2017-03-22 11:40:00",
-				"duration_end":"2017-03-29 11:40:00"
+				"transmission_content":"this is the transmission_content"
 			},
 			"push_info": {
 				"aps": {
 					"alert": {
-						"title": "xxxx",
-						"body": "xxxxx"
+						"title": title,
+						"body": info
 					},
 					"autoBadge": "+1",
 					"content-available": 1
@@ -89,11 +79,11 @@ GETUI.prototype = {
 					{
 						"url": "http://ol5mrj259.bkt.clouddn.com/test2.mp4",
 						"type": 3,
-						"only_wifi": true
+						"only_wifi": false
 					}
 				]
 			},
-			"cid": "5c4e5cf583713aaa09543d5052f11f3e",
+			"cid": cId,
 			"requestid": inst.gen()
 		};
 		var options = {
@@ -107,16 +97,15 @@ GETUI.prototype = {
 			json:true,
 			body:postData
 		};
+		var that =this;
 		return new Promise(function(resolve, reject){
 			request(options,
 				function(error, response, data) {
-				if (!error && response.statusCode == 200) {
-					resolve(data);
+				if (!error && data.result == "ok") {
+					resolve(data.result);
 				}else{
-					reject({
-						status:800,
-						msg:error
-					});
+					that.getAuthToken();
+					reject(error || data.result);
 				}
 			});
 		});
